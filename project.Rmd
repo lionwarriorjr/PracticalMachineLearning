@@ -1,0 +1,110 @@
+---
+title: "Practical Machine Learning - Project Assignment"
+output: html_document
+---
+
+# Assignment Background Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+# Assignment Submission Expectation Summary
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases. 
+
+1. Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
+2. You should also apply your machine learning algorithm to the 20 test cases available in the test data above. Please submit your predictions in appropriate format to the programming assignment for automated grading. See the programming assignment for additional details. 
+
+# Set Environment
+It is advisable to use echo = TRUE when writing code chunks in R markdown document so that others will be able to read the code.
+
+1. library(knitr)
+2. opts_chunk$set(echo=TRUE, results = 'hold')
+
+# Load Libraries and set Seed
+Load all libraries used and set seed for reproduceablility
+
+* library(data.table)
+* library(caret)
+* library(ggplot2)
+* library(doMC)
+* library(knitr)
+* library(xtable)
+* library(randomForest)
+* set.seed(13)
+
+# Download pml-training and pml-testing csv files
+Saved any/all provided files in assignment work in working directory
+using download.file.
+
+* download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "/data/pml-training.csv")
+* download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "/data/pml-testing.csv")
+
+# Read File 
+Read Training CSV file and Remove ID row
+
+* pml_train <- read.csv("/data/pml-training.csv", header=TRUE, sep=",", na.strings=c("NA",""))
+* pml_train <- pml_train[,-1]
+
+# Partitions and Data Sets Definitions
+Create the data partitions of training and validating data sets.
+
+* inTrain = createDataPartition(pml_train$classe, p=0.60, list=FALSE)
+* training = pml_train[inTrain,]
+* validating = pml_train[-inTrain,]
+
+# Data Exploration and Sanitize Data
+Since random forest model chosen, need to remove columns that doesn't have data prior to apply to model
+
+* sum((colSums(!is.na(training[,-ncol(training)])) < 0.6*nrow(training)))
+* Keep <- c((colSums(!is.na(training[,-ncol(training)])) >= 0.6*nrow(training)))
+* training <- training[,Keep]
+* validating <- validating[,Keep]
+
+# Modeling
+* model <- randomForest(classe~.,data=training)
+* print(model)
+
+# Model Evaluate
+Verify variable importance measures produced by random forest
+
+* importance(model)
+
+# Evaluate Model Results 
+
+Now Evaluate model results using confusion Matrix.
+
+* confusionMatrix(predict(model, newdata=validating[,-ncol(validating)]), validating$classe)
+
+# Accuracy 
+
+Check Accuracy at validating data set by calculate it with formula.
+Model Accuracy as tested over validating set = 99.8215%
+
+* accuracy <- c(as.numeric(predict(model,newdata=validating[,-ncol(validating)]) == validating$classe))
+* accuracy <- sum(accuracy)*100/nrow(validating)
+* print(accuracy)
+
+# Model Test
+Proceed with predicting new values in testing csv file. Apply same cleaning operations etc
+
+* pml_test <- read.csv("/data/pml-testing.csv", header=TRUE, sep=",", na.strings=c("NA",""))
+* pml_test <- pml_test[,-1] # Remove first column that is a ID row
+* pml_test <- pml_test[, Keep] # Keep same columns of testing dataset
+* pml_test <- pml_test[,-ncol(pml_test)] # Remove problem ID.
+* testing <- rbind(training[100, -59], pml_test) # Apply same transformations and Coerce Testing Dataset
+* row.names(testing) <- c(100, 1:20)
+
+# Predicting with Testing Dataset
+
+* predictions <- predict(model, newdata=testing[-1,])
+* print(predictions)
+
+# Save Answers to file
+
+* pml_write_files = function(x) {
+    n = length(x)
+    for(i in 1:n) {
+      filename = paste0("/data/problem_id_",i,".txt")
+      write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+* pml_write_files(predictions)

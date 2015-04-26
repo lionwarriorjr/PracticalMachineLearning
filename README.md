@@ -1,2 +1,4 @@
-# PracticalMachineLearning
-Coursera Practical Machine Learning
+Practical_Machine_Learning
+==========================
+
+Practical Machine Learning 
